@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Activity Dashboard</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        input, select, button { margin: 5px; padding: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        table, th, td { border: 1px solid #ccc; }
+        th, td { padding: 8px; text-align: left; }
+        h2 { margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<h1>Activity Dashboard</h1>
+
+<!-- Filters -->
+<h2>Filter Logs</h2>
+
+<input type="number" id="user_id" placeholder="User ID">
+<input type="text" id="action" placeholder="Action">
+<input type="date" id="date_from">
+<input type="date" id="date_to">
+
+<button onclick="loadLogs()">Load Logs</button>
+
+<!-- Logs Table -->
+<table id="logsTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>User ID</th>
+            <th>Action</th>
+            <th>IP</th>
+            <th>Time</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div style="margin-top: 10px;">
+    <button onclick="prevPage()">Prev</button>
+    <span id="pageInfo">Page 1</span>
+    <button onclick="nextPage()">Next</button>
+</div>
+
+<!-- Anomaly Section -->
+<h2>Anomaly Detection</h2>
+<button onclick="loadAnomalies()">Check Anomalies</button>
+
+<h3>High Activity Users</h3>
+<ul id="highActivity"></ul>
+
+<h3>Multiple IP Users</h3>
+<ul id="multiIP"></ul>
+
+<script>
+let currentPage = 1;
+let limit = 10;
+
+function loadLogs(page = 1) {
+    currentPage = page;
+
+    let userId = document.getElementById('user_id').value;
+    let action = document.getElementById('action').value;
+    let dateFrom = document.getElementById('date_from').value;
+    let dateTo = document.getElementById('date_to').value;
+
+    let offset = (currentPage - 1) * limit;
+
+    let url = `../api/logs.php?limit=${limit}&offset=${offset}`;
+
+    if (userId) url += '&user_id=' + userId;
+    if (action) url += '&action=' + action;
+    if (dateFrom) url += '&date_from=' + dateFrom;
+    if (dateTo) url += '&date_to=' + dateTo;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(res => {
+            let data = res.data || res;
+            let rows = '';
+
+            if (data.length === 0) {
+                rows = `<tr><td colspan="5">No data found</td></tr>`;
+            } else {
+                data.forEach(log => {
+                    rows += `
+                        <tr>
+                            <td>${log.id}</td>
+                            <td>${log.user_id}</td>
+                            <td>${log.action}</td>
+                            <td>${log.ip_address}</td>
+                            <td>${log.created_at}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.querySelector('#logsTable tbody').innerHTML = rows;
+
+            // Update page number
+            document.getElementById('pageInfo').innerText = "Page " + currentPage;
+        });
+}
+
+// Pagination buttons
+function nextPage() {
+    currentPage++;
+    loadLogs(currentPage);
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadLogs(currentPage);
+    }
+}
+
+// Load anomalies
+function loadAnomalies() {
+    fetch('../api/anomalies.php')
+        .then(res => res.json())
+        .then(res => {
+            let high = res.data?.high_activity || res.high_activity;
+            let multi = res.data?.multi_ip || res.multi_ip;
+
+            let highHtml = '';
+            high.forEach(u => {
+                highHtml += `<li>User ${u.user_id} ${u.cnt} actions</li>`;
+            });
+
+            let multiHtml = '';
+            multi.forEach(u => {
+                multiHtml += `<li>User ${u.user_id} ${u.ips} IPs</li>`;
+            });
+
+            document.getElementById('highActivity').innerHTML = highHtml;
+            document.getElementById('multiIP').innerHTML = multiHtml;
+        });
+}
+</script>
+
+</body>
+</html>
